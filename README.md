@@ -71,3 +71,19 @@ Next we need to allow the guest user to access the *image-resizer* vhost:
 ```bash
 # rabbitmqctl set_permissions -p image-resizer guest ".*" ".*" ".*"
 ```
+
+## Add ampq package
+
+[ampq](https://github.com/streadway/amqp) is a RabbitMQ library for Python.
+
+```bash
+$ go get github.com/streadway/amqp
+```
+
+## Add imaging package
+
+[Imaging](https://github.com/disintegration/imaging)  provides basic image processing functions (resize, rotate, crop, brightness/contrast adjustments, etc.).
+
+```bash
+$ go get -u github.com/disintegration/imaging
+```
