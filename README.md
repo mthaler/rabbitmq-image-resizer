@@ -1,5 +1,5 @@
 # rabbitmq-image-resizer
-Image resize service using Go &amp; RabbitMQ
+Image resize service using Go &amp; RabbitMQ. The client loads an image and sends it to the server, which will resize the image and sends it back to the client. The client will then save the resized image to the working directory.
 
 ## Install RabbitMQ
 
@@ -87,3 +87,11 @@ $ go get github.com/streadway/amqp
 ```bash
 $ go get -u github.com/disintegration/imaging
 ```
+
+## Running
+
+The RabbitMQ username and password need to be passed as command line arguments:
+
+![Command line arguments](screenshots/command_line_arguments.jpg)
+
+First start the server, then the client.
