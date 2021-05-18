@@ -55,3 +55,19 @@ It is a good idea to change the password of the *guest* user:
 ```bash
 # rabbitmqctl change_password guest new_password
 ```
+
+## Configure pdf-processor vhost
+
+```
+# rabbitmqctl add_vhost image-resizer
+```
+
+Refresh the web UI. It should now show the image-resizer vhost:
+
+![image-resizer vhost](screenshots/image_resizer_vhost.jpg)
+
+Next we need to allow the guest user to access the *image-resizer* vhost:
+
+```bash
+# rabbitmqctl set_permissions -p image-resizer guest ".*" ".*" ".*"
+```
