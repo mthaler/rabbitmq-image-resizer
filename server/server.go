@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/disintegration/imaging"
 	"github.com/streadway/amqp"
 	"log"
 	"os"
-	"strconv"
 )
 
 func failOnError(err error, msg string) {
@@ -84,11 +85,17 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			n, err := strconv.Atoi(string(d.Body))
-			failOnError(err, "Failed to convert body to integer")
+			r := bytes.NewReader(d.Body)
+			src, err := imaging.Decode(r, nil)
+			failOnError(err, "Failed to decode image")
 
-			log.Printf(" [.] fib(%d)", n)
-			response := fib(n)
+			// Resize the to width = 200px preserving the aspect ratio.
+			resized := imaging.Resize(src, 200, 0, imaging.Lanczos)
+
+			b := bytes.NewBuffer([]byte{})
+			imaging.Encode(b, resized, imaging.JPEG)
+
+			response := b.Bytes()
 
 			err = ch.Publish(
 				"",        // exchange
@@ -98,7 +105,7 @@ func main() {
 				amqp.Publishing{
 					ContentType:   "text/plain",
 					CorrelationId: d.CorrelationId,
-					Body:          []byte(strconv.Itoa(response)),
+					Body:          response,
 				})
 			failOnError(err, "Failed to publish a message")
 
