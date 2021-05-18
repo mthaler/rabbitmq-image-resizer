@@ -1,16 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/disintegration/imaging"
+	"github.com/streadway/amqp"
 	"image"
 	"log"
 	"math/rand"
 	"os"
-	"strconv"
-	"strings"
 	"time"
-
-	"github.com/streadway/amqp"
 )
 
 func failOnError(err error, msg string) {
@@ -31,7 +30,7 @@ func randInt(min int, max int) int {
 	return min + rand.Intn(max-min)
 }
 
-func imageResizeRPC(img image.Image) (res int, err error) {
+func imageResizeRPC(img image.Image) (err error) {
 	args := os.Args
 	if len(args) < 3 {
 		log.Fatalln("Usage: server user password")
@@ -41,7 +40,7 @@ func imageResizeRPC(img image.Image) (res int, err error) {
 	password := args[2]
 
 	url := fmt.Sprintf("amqp://%s:%s@localhost:5672/image-resizer", user, password)
-	fmt.Printf("URL: %s", url)
+	fmt.Printf("URL: %s\n", url)
 
 	fmt.Println("Connecting to RabbitMQ broker...")
 	conn, err := amqp.Dial(url)
@@ -56,7 +55,7 @@ func imageResizeRPC(img image.Image) (res int, err error) {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"image-resizer",    // name
+		"",    // name
 		false, // durable
 		false, // delete when unused
 		true,  // exclusive
@@ -80,6 +79,9 @@ func imageResizeRPC(img image.Image) (res int, err error) {
 
 	corrId := randomString(32)
 
+	 b := bytes.NewBuffer([]byte{})
+	 imaging.Encode(b, img, imaging.JPEG)
+
 	err = ch.Publish(
 		"",          // exchange
 		"image-resizer", // routing key
@@ -89,14 +91,22 @@ func imageResizeRPC(img image.Image) (res int, err error) {
 			ContentType:   "text/plain",
 			CorrelationId: corrId,
 			ReplyTo:       q.Name,
-			Body:          []byte(strconv.Itoa(n)),
+			Body:          b.Bytes(),
 		})
 	failOnError(err, "Failed to publish a message")
 
 	for d := range msgs {
 		if corrId == d.CorrelationId {
-			res, err = strconv.Atoi(string(d.Body))
-			failOnError(err, "Failed to convert body to integer")
+			r := bytes.NewReader(d.Body)
+			resized, err := imaging.Decode(r)
+			failOnError(err, "Failed to decode image")
+
+			// Save the resulting image as JPEG.
+			err = imaging.Save(resized, "resized.jpg")
+			if err != nil {
+				log.Fatalf("failed to save image: %v", err)
+			}
+			fmt.Println("Saved resized image")
 			break
 		}
 	}
@@ -107,23 +117,13 @@ func imageResizeRPC(img image.Image) (res int, err error) {
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	n := bodyFrom(os.Args)
-
-	log.Printf(" [x] Requesting fib(%d)", n)
-	res, err := fibonacciRPC(n)
-	failOnError(err, "Failed to handle RPC request")
-
-	log.Printf(" [.] Got %d", res)
-}
-
-func bodyFrom(args []string) int {
-	var s string
-	if (len(args) < 2) || os.Args[1] == "" {
-		s = "30"
-	} else {
-		s = strings.Join(args[1:], " ")
+	// Open a test image.
+	src, err := imaging.Open("pasqueflower.jpg")
+	if err != nil {
+		log.Fatalf("failed to open image: %v", err)
 	}
-	n, err := strconv.Atoi(s)
-	failOnError(err, "Failed to convert arg to integer")
-	return n
+
+	fmt.Println("Requesting image resize...")
+	err = imageResizeRPC(src)
+	failOnError(err, "Failed to handle RPC request")
 }

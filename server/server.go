@@ -15,16 +15,6 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func fib(n int) int {
-	if n == 0 {
-		return 0
-	} else if n == 1 {
-		return 1
-	} else {
-		return fib(n-1) + fib(n-2)
-	}
-}
-
 func main() {
 	args := os.Args
 	if len(args) < 3 {
@@ -35,7 +25,7 @@ func main() {
 	password := args[2]
 
 	url := fmt.Sprintf("amqp://%s:%s@localhost:5672/image-resizer", user, password)
-	fmt.Printf("URL: %s", url)
+	fmt.Printf("URL: %s\n", url)
 
 	fmt.Println("Connecting to RabbitMQ broker...")
 	conn, err := amqp.Dial(url)
@@ -86,7 +76,7 @@ func main() {
 	go func() {
 		for d := range msgs {
 			r := bytes.NewReader(d.Body)
-			src, err := imaging.Decode(r, nil)
+			src, err := imaging.Decode(r)
 			failOnError(err, "Failed to decode image")
 
 			// Resize the to width = 200px preserving the aspect ratio.
